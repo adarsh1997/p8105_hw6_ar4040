@@ -90,7 +90,75 @@ models_results_df %>%
 
 ## Problem 2
 
+Let us first load in and clean the dataset
+
 ```{r}
+bwt_df = 
+  read_csv("./data/birthweight.csv")%>%
+  janitor::clean_names()%>%
+  mutate(babysex = as_factor(babysex),
+         frace = as_factor(frace),
+         malform = as_factor(malform),
+         mrace = as_factor(mrace))
+```
+
+Now let us look at a regression model where we regress birthweight bwt (our outcome) on family monthly income fincome and mother's race mrace (our predictors). 
+The purpose of this model is to study the effect of social factors related to the
+baby's mother on the baby's birthweight. Mother's income was chosen since poor income might relate to how healthy the mother is and in turn the baby's birthweight.
+
+```{r}
+bwt_model_proposed = lm(bwt ~ fincome, data = bwt_df)
+```
+
+After creating the model, let us plot the residuals of the model against the fitted values
+
+```{r}
+bwt_df %>% 
+  modelr::add_residuals(bwt_model_proposed) %>% 
+  ggplot(aes(x = fincome, y = resid)) + 
+  geom_point()
+```
+
+When looking at the residuals, they seem to be fairly evenly distributed and no specific pattern is observed (no skewness in any direction) which meets the assumption for linear regression.
+
+Let us now compare this to the two other models. These are the main and interactions models
+
+```{r}
+
+bwt_model_main = lm(bwt ~ blength + gaweeks, data = bwt_df)
+bwt_model_interactions = lm(bwt ~ bhead + blength + babysex + bhead*blength + bhead*babysex + blength*babysex + bhead*blength*babysex, data = bwt_df)
 
 ```
 
+Now let's use cross validation to compare the three models
+
+```{r}
+cross_df =
+  crossv_mc(bwt_df, 100) %>% 
+  mutate(
+    train = map(train, as_tibble),
+    test = map(test, as_tibble))
+
+cross_df = 
+  cross_df %>% 
+  mutate(
+    bwt_model_proposed  = map(train, ~lm(bwt ~ fincome, data = .x)),
+    bwt_model_main   = map(train, ~lm(bwt ~ blength + gaweeks, data = .x)),
+    bwt_model_interactions  = map(train, ~lm(bwt ~ bhead + blength + babysex + bhead*blength + bhead*babysex + blength*babysex + bhead*blength*babysex, data = .x))) %>% 
+  mutate(
+    rmse_proposed = map2_dbl(bwt_model_proposed, test, ~rmse(model = .x, data = .y)),
+    rmse_main   = map2_dbl(bwt_model_main, test, ~rmse(model = .x, data = .y)),
+    rmse_interactions = map2_dbl(bwt_model_interactions, test, ~rmse(model = .x, data = .y)))
+
+cross_df %>% 
+  select(starts_with("rmse")) %>% 
+  pivot_longer(
+    everything(),
+    names_to = "model", 
+    values_to = "rmse",
+    names_prefix = "rmse_") %>% 
+  mutate(model = fct_inorder(model)) %>% 
+  ggplot(aes(x = model, y = rmse)) + geom_violin()
+```
+
+From the plot above, it is clear that the proposed model has a significantly higher rmse than the main or interactions model. Hence, the proposed model doesn't have a very good prediction accuracy. The main effect model has a slightly higher rmse than the interactions model. From these 3 models, it appears that the interactions model has the highest prediction accuracy and is the best model (it "wins"!). 
