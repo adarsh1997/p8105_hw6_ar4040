@@ -1,0 +1,18 @@
+---
+title: "Homework 6"
+author: Adarsh Ramakrishnan
+output: github_document
+---
+
+This is my homework 6 solution:
+
+
+Loading libraries:
+
+```{r libraries}
+library(tidyverse)
+```
+
+
+## Problem 1
+
