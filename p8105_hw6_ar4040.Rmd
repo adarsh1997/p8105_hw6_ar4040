@@ -187,7 +187,7 @@ extract rsquared and log of slope times intercept for each of the 5000 samples..
 ```{r}
 
 weather_df_strap = weather_df%>%
-  modelr::bootstrap(n = 100) %>% 
+  modelr::bootstrap(n = 5000) %>% 
   mutate(
     models = map(strap, ~ lm(tmax ~ tmin, data = .x) ),
     terms = map(models, broom::tidy),
@@ -206,4 +206,45 @@ weather_df_strap = weather_df%>%
 
 
 ```
+
+Let us plot the distribution of the r-squared and log estimates
+
+```{r}
+weather_df_strap%>%
+  ggplot(aes(x = r_squared))+
+  geom_histogram()+
+  labs(title = "Distribution of r-squared", x = "r-squared estimate", y = "frequency")
+
+weather_df_strap%>%
+  ggplot(aes(x = log_estimate_intercept))+
+  geom_histogram()+
+  labs(title = "Distribution of the log(intercept*estimate)", x = "log(intercept*slope) estimate", y = "frequency")
+  
+```
+
+It is clear that both the r-squred estimates as well as the log(intercept*slope)
+estimates follow an approximately normal distribution.
+
+Now we need to compute a 95% confidence interval for both the estimates..
+
+```{r}
+weather_df_strap%>%
+  select(r_squared)%>%
+  mutate(term = 'r_squared')%>%
+  group_by(term)%>%
+  summarize(ci_lower = quantile(r_squared, 0.025), 
+    ci_upper = quantile(r_squared, 0.975))
+```
+The 95% confidence interval for the R Squared values is (0.894,0.927) for this bootstrap run (changes every time the dataframe is created)
+
+```{r}
+weather_df_strap%>%
+  select(log_estimate_intercept)%>%
+  mutate(term = 'log_estimate_intercept')%>%
+  group_by(term)%>%
+  summarize(ci_lower = quantile(log_estimate_intercept, 0.025), 
+    ci_upper = quantile(log_estimate_intercept, 0.975))
+```
+The 95% confidence interval for the log of slope times intercept is (1.964,2.057) for this bootstrap run.
+
 
