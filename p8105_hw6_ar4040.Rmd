@@ -162,3 +162,48 @@ cross_df %>%
 ```
 
 From the plot above, it is clear that the proposed model has a significantly higher rmse than the main or interactions model. Hence, the proposed model doesn't have a very good prediction accuracy. The main effect model has a slightly higher rmse than the interactions model. From these 3 models, it appears that the interactions model has the highest prediction accuracy and is the best model (it "wins"!). 
+
+## Problem 3
+
+Load in the data..
+
+```{r}
+weather_df = 
+  rnoaa::meteo_pull_monitors(
+    c("USW00094728"),
+    var = c("PRCP", "TMIN", "TMAX"), 
+    date_min = "2017-01-01",
+    date_max = "2017-12-31") %>%
+  mutate(
+    name = recode(id, USW00094728 = "CentralPark_NY"),
+    tmin = tmin / 10,
+    tmax = tmax / 10) %>%
+  select(name, id, everything())
+```
+
+We can now create 5000 bootsrap samples for the tmax vs tmin linear model and 
+extract rsquared and log of slope times intercept for each of the 5000 samples..
+
+```{r}
+
+weather_df_strap = weather_df%>%
+  modelr::bootstrap(n = 100) %>% 
+  mutate(
+    models = map(strap, ~ lm(tmax ~ tmin, data = .x) ),
+    terms = map(models, broom::tidy),
+    rsquares = map(models, broom::glance)
+    )%>%
+  unnest(terms)%>%
+  select(.id, term, estimate, rsquares)%>%
+  unnest(rsquares)%>%
+  select(.id, term, estimate, r.squared)%>%
+  pivot_wider(names_from = term, values_from = estimate )%>%
+  rename(id = .id,
+         r_squared = r.squared,
+         intercept = `(Intercept)`,
+         estimate = tmin)%>%
+  mutate(log_estimate_intercept = log(intercept * estimate))
+
+
+```
+
